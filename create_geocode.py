@@ -11,4 +11,3 @@ with open("Rental place coordinates.txt", "w") as file:
         location = nom.geocode(house)
         file.write(str(location.latitude) + "," + str(location.longitude) + "\n")
         print([location.latitude, location.longitude])
-        # sleep(random.randint(2, 4))
