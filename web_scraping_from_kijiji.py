@@ -57,41 +57,6 @@ for num in range(1, 48):
         except:
             titleList.append("No title")
 
-
-singleURL = ["https://www.kijiji.ca/v-apartments-condos/st-johns/2-bedroom-basement-apartment-for-rent-east-end/1400257871?enableSearchNavigationFlag=true",]
-
-for itemURL in singleURL:
-    itemWeb = requests.get(itemURL)
-    itemContent = itemWeb.content
-    itemSoup = BeautifulSoup(itemContent, "html.parser")
-
-    try:
-        addressList.append(itemSoup.find("span", {"class", "address-3617944557"}).text)
-        hrefList.append(itemURL)
-    except:
-        continue
-
-    try:
-        information = itemSoup.find_all(("dd", {"class", "attributeValue-2574930263"}))
-        label = itemSoup.find_all(("dt", {"class", "attributeLabel-240934283"}))
-        info = ""
-        for item1, item2 in zip(information, label):
-            info = info + item2.text + ": " + item1.text + " *** "
-        roomNumber.append(info)
-    except:
-        roomNumber.append("Not given")
-
-    try:
-        priceList.append(itemSoup.find("span", {"class", "currentPrice-441857624"}).text)
-    except:
-        priceList.append("Not available")
-
-    try:
-        titleList.append(itemSoup.find("h1", {"class", "title-2323565163"}).text)
-    except:
-        titleList.append("No title")
-
-
 # print(addressList)
 # print(hrefList)
 print(len(priceList))
