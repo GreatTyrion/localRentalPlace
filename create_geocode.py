@@ -6,8 +6,8 @@ with open("Rental place address.txt", "r") as file:
         addressList.append(line.replace("\n", ""))
 
 nom = ArcGIS()
-with open("Rental place coordinates.txt", "a") as file:
-    for house in addressList[985:]:
+with open("Rental place coordinates.txt", "w") as file:
+    for house in addressList:
         location = nom.geocode(house)
         file.write(str(location.latitude) + "," + str(location.longitude) + "\n")
         print([location.latitude, location.longitude])
