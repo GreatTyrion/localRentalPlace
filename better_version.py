@@ -8,7 +8,7 @@ from queue import Queue
 import threading
 import time
 
-from get_kijiji_content import simple_gets
+from get_kijiji_content import simple_get
 
 
 def get_content(num):
