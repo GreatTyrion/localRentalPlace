@@ -74,84 +74,88 @@ class WebScraper(threading.Thread):
         self.num = num
         self.size = 0
 
-    def run(self):
-        for ad in self.content:
-            item_url = "https://www.kijiji.ca" + ad.a.get("href")
-            # print(item_url)
-            item_content = simple_get(item_url)
-            if not item_content:
-                continue
-            item_soup = BeautifulSoup(item_content, "html.parser")
-            try:
-                item_address = item_soup.find(
-                    "span", {"class", "address-3617944557"}
-                ).string.replace("\n", "")
-            except Exception as e:
-                print(f"Address is not found: {item_url}")
-                continue
 
-            try:
-                latitude = float(item_soup.find(
-                    "meta", {"property": "og:latitude"}
-                ).get("content"))
-                longitude = float(item_soup.find(
-                    "meta", {"property": "og:longitude"}
-                ).get("content"))
-            except Exception as e:
-                latitude = None
-                longitude = None
+def web_scraper(number, size=0):
+    content = get_content(number)
+    time.sleep(2)
+    for ad in content:
+        item_url = "https://www.kijiji.ca" + ad.a.get("href")
+        item_content = simple_get(item_url)
+        if not item_content:
+            continue
+        item_soup = BeautifulSoup(item_content, "html.parser")
+        try:
+            item_address = item_soup.find(
+                "span", {"class", "address-3617944557"}
+            ).string.replace("\n", "")
+        except Exception as e:
+            print(f"Address is not found: {item_url}")
+            continue
 
-            try:
-                item_price = item_soup.find(
-                    "span", {"class": "currentPrice-2842943473"}
-                ).string.replace("\n", "")
-            except Exception as e:
-                item_price = "Not available"
-                print(f"Price is not found: {item_url}")
+        try:
+            latitude = float(item_soup.find(
+                "meta", {"property": "og:latitude"}
+            ).get("content"))
+            longitude = float(item_soup.find(
+                "meta", {"property": "og:longitude"}
+            ).get("content"))
+        except Exception as e:
+            latitude = None
+            longitude = None
 
-            try:
-                item_title = item_soup.find(
-                    "h1", {"class", "title-2323565163"}
-                ).text.replace("\n", "")
-            except Exception as e:
-                item_title = "No title"
-                print(f"Title is not found: {item_url}")
+        try:
+            item_price = item_soup.find(
+                "span", {"class": "currentPrice-2842943473"}
+            ).string.replace("\n", "")
+        except Exception as e:
+            item_price = "Not available"
+            print(f"Price is not found: {item_url}")
 
-            try:
-                labels = item_soup.find_all(
-                    "dt", {"class": "attributeLabel-240934283"}
-                )
-                values = item_soup.find_all(
-                    "dd", {"class": "attributeValue-2574930263"}
-                )
-                info_list = [label.string + ": " + value.string for
-                             label, value in zip(labels, values)]
-                item_info = " *** ".join(info_list)
+        try:
+            item_title = item_soup.find(
+                "h1", {"class", "title-2323565163"}
+            ).text.replace("\n", "")
+        except Exception as e:
+            item_title = "No title"
+            print(f"Title is not found: {item_url}")
 
-                if item_info:
-                    pass
-                else:
-                    item_info = " *** ".join(get_info(item_soup))
-            except Exception as e:
-                item_info = "Not available"
-                print(f"Info is not found: {item_url}")
+        try:
+            labels = item_soup.find_all(
+                "dt", {"class": "attributeLabel-240934283"}
+            )
+            values = item_soup.find_all(
+                "dd", {"class": "attributeValue-2574930263"}
+            )
+            info_list = [label.string + ": " + value.string for
+                         label, value in zip(labels, values)]
+            item_info = " *** ".join(info_list)
 
-            try:
-                des_list = [string for string in item_soup.find(
-                    "h3", {"class": "title-1536205785"}
-                ).next_sibling.strings]
-                des_list = [string.replace("\n", " ") for string in des_list]
-                description = "".join(des_list)
-            except Exception as e:
-                description = "Not available"
-                print(f"Description is not found: {item_url}")
+            if item_info:
+                pass
+            else:
+                item_info = " *** ".join(get_info(item_soup))
+        except Exception as e:
+            item_info = "Not available"
+            print(f"Info is not found: {item_url}")
 
-            data = [item_title, item_url, item_address, latitude, longitude,
-                    item_price, item_info, description]
-            data_queue.put(data)
-            self.size += 1
-            #print(data_queue.qsize())
-        print(f"Thread #{self.num} scrapes {self.size} ads")
+        try:
+            des_list = [string for string in item_soup.find(
+                "h3", {"class": "title-1536205785"}
+            ).next_sibling.strings]
+            des_list = [string.replace("\n", " ") for string in des_list]
+            description = "".join(des_list)
+        except Exception as e:
+            description = "Not available"
+            print(f"Description is not found: {item_url}")
+
+        data = [item_title, item_url, item_address, latitude, longitude,
+                item_price, item_info, description]
+        data_queue.put(data)
+        size += 1
+        print(f"Completed scraping from {item_url}")
+        time.sleep(2)
+
+    print(f"Thread #{number} scrapes {size} ads")
 
 
 if __name__ == "__main__":
@@ -166,26 +170,11 @@ if __name__ == "__main__":
         "info": [],
         "description": []
     }
-    thread_list = []
 
     begin_time = datetime.now()
     for num in range(1, 16):
-        print(f"Working thread {num} is about to start...")
-        thread_list.append(WebScraper(num))
-        time.sleep(3)
-
-    time.sleep(3)
-
-    for index, every_thread in enumerate(thread_list):
-        print(f"Thread #{index+1} is about to scrape...")
-        every_thread.start()
-        time.sleep(3)
-
-    time.sleep(3)
-
-    for index, every_thread in enumerate(thread_list):
-        print(f"Thread #{index+1} is about to join...")
-        every_thread.join()
+        print(f"Working turtle {num} is about to scrape")
+        web_scraper(num)
 
     scrape_time = datetime.now() - begin_time
     print(f"Total scrape time: {scrape_time}")
