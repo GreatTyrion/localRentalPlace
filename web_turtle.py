@@ -121,10 +121,10 @@ def web_scraper(number, size=0):
 
         try:
             labels = item_soup.find_all(
-                "dt", {"class": "attributeLabel-240934283"}
+                "dt", {"class": "twoLinesLabel-3766429502"}
             )
             values = item_soup.find_all(
-                "dd", {"class": "attributeValue-2574930263"}
+                "dd", {"class": "twoLinesValue-2815147826"}
             )
             info_list = [label.string + ": " + value.string for
                          label, value in zip(labels, values)]
@@ -140,7 +140,7 @@ def web_scraper(number, size=0):
 
         try:
             des_list = [string for string in item_soup.find(
-                "h3", {"class": "title-1536205785"}
+                "h3", {"class": "title-1621348837"}
             ).next_sibling.strings]
             des_list = [string.replace("\n", " ") for string in des_list]
             description = "".join(des_list)
@@ -172,7 +172,7 @@ if __name__ == "__main__":
     }
 
     begin_time = datetime.now()
-    for num in range(1, 16):
+    for num in range(1, 7):
         print(f"Working turtle {num} is about to scrape")
         web_scraper(num)
 
@@ -231,9 +231,9 @@ if __name__ == "__main__":
     def color_selector(price):
         try:
             price = float(price.replace("$", "").replace(",", ""))
-            if price < 600:
+            if price < 800:
                 return "green"
-            elif 600 <= price < 1000:
+            elif 800 <= price < 1200:
                 return "orange"
             else:
                 return "red"
