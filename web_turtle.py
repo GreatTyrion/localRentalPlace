@@ -172,7 +172,7 @@ if __name__ == "__main__":
     }
 
     begin_time = datetime.now()
-    for num in range(1, 8):
+    for num in range(1, 11):
         print(f"Working turtle {num} is about to scrape")
         web_scraper(num)
 
