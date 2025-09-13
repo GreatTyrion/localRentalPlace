@@ -1,2 +1,5 @@
 __pycache__/
 playground/
+.env
+.cursor
+.DS_Store

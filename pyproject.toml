@@ -1,0 +1,27 @@
+[project]
+name = "localrentalplace"
+version = "0.1.0"
+description = "Kijiji rental property web scraper with interactive map visualization"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "beautifulsoup4>=4.13.5",
+    "branca>=0.8.1",
+    "bs4>=0.0.2",
+    "certifi>=2025.8.3",
+    "chardet>=5.2.0",
+    "folium>=0.20.0",
+    "geographiclib>=2.1",
+    "geopy>=2.4.1",
+    "idna>=3.10",
+    "jinja2>=3.1.6",
+    "markupsafe>=3.0.2",
+    "numpy>=2.3.3",
+    "pandas>=2.3.2",
+    "python-dateutil>=2.9.0.post0",
+    "pytz>=2025.2",
+    "requests>=2.32.5",
+    "six>=1.17.0",
+    "soupsieve>=2.8",
+    "urllib3>=2.5.0",
+]
