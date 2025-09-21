@@ -457,15 +457,175 @@ class KijijiScraperFinal:
             except (ValueError, TypeError):
                 return 'blue'
         
-        # HTML template for popup (similar to web_turtle.py)
+        # Beautiful HTML template for popup with modern styling
         popup_html = """
-        <div style="width: 300px; font-family: Arial, sans-serif;">
-            <h3 style="margin: 0 0 10px 0; color: #333;">%s</h3>
-            <p style="margin: 5px 0; font-size: 16px; font-weight: bold; color: #2c5aa0;">Price: %s</p>
-            <p style="margin: 5px 0; color: #666;"><strong>Address:</strong> %s</p>
-            <p style="margin: 5px 0; color: #555; font-size: 14px;"><strong>Information:</strong><br>%s</p>
-            <p style="margin: 5px 0; color: #777; font-size: 13px;"><strong>Description:</strong><br>%s</p>
-            <p style="margin: 10px 0 0 0;"><a href="%s" target="_blank" style="color: #2c5aa0; text-decoration: none;">Link to Kijiji →</a></p>
+        <div style="
+            width: 380px; 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #f8fafc 0%%, #f1f5f9 100%%);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+        ">
+            <!-- Header Section -->
+            <div style="
+                background: linear-gradient(135deg, #3b82f6 0%%, #1d4ed8 100%%);
+                color: white;
+                padding: 16px 20px;
+                margin: 0;
+            ">
+                <h3 style="
+                    margin: 0;
+                    font-size: 18px;
+                    font-weight: 600;
+                    line-height: 1.3;
+                    text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+                ">%s</h3>
+            </div>
+            
+            <!-- Content Section -->
+            <div style="padding: 20px;">
+                <!-- Price Badge -->
+                <div style="
+                    background: linear-gradient(135deg, #10b981 0%%, #059669 100%%);
+                    color: white;
+                    padding: 8px 16px;
+                    border-radius: 20px;
+                    font-size: 16px;
+                    font-weight: 700;
+                    text-align: center;
+                    margin-bottom: 16px;
+                    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+                ">
+                    %s
+                </div>
+                
+                <!-- Address Section -->
+                <div style="margin-bottom: 16px;">
+                    <div style="
+                        display: flex;
+                        align-items: flex-start;
+                        margin-bottom: 8px;
+                    ">
+                        <div style="
+                            background: #3b82f6;
+                            color: white;
+                            width: 20px;
+                            height: 20px;
+                            border-radius: 50%%;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font-size: 12px;
+                            margin-right: 10px;
+                            flex-shrink: 0;
+                            margin-top: 2px;
+                        ">📍</div>
+                        <div>
+                            <div style="
+                                font-size: 12px;
+                                color: #64748b;
+                                font-weight: 600;
+                                text-transform: uppercase;
+                                letter-spacing: 0.5px;
+                                margin-bottom: 2px;
+                            ">LOCATION</div>
+                            <div style="
+                                color: #334155;
+                                font-size: 14px;
+                                line-height: 1.4;
+                            ">%s</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Information Section -->
+                <div style="margin-bottom: 16px;">
+                    <div style="
+                        display: flex;
+                        align-items: flex-start;
+                        margin-bottom: 8px;
+                    ">
+                        <div style="
+                            background: #8b5cf6;
+                            color: white;
+                            width: 20px;
+                            height: 20px;
+                            border-radius: 50%%;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font-size: 12px;
+                            margin-right: 10px;
+                            flex-shrink: 0;
+                            margin-top: 2px;
+                        ">ℹ️</div>
+                        <div>
+                            <div style="
+                                font-size: 12px;
+                                color: #64748b;
+                                font-weight: 600;
+                                text-transform: uppercase;
+                                letter-spacing: 0.5px;
+                                margin-bottom: 2px;
+                            ">DETAILS</div>
+                            <div style="
+                                color: #334155;
+                                font-size: 14px;
+                                line-height: 1.4;
+                            ">%s</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Description Section -->
+                <div style="margin-bottom: 20px;">
+                    <div style="
+                        background: #f8fafc;
+                        border-left: 4px solid #3b82f6;
+                        padding: 12px 16px;
+                        border-radius: 0 8px 8px 0;
+                        margin-bottom: 8px;
+                    ">
+                        <div style="
+                            font-size: 12px;
+                            color: #64748b;
+                            font-weight: 600;
+                            text-transform: uppercase;
+                            letter-spacing: 0.5px;
+                            margin-bottom: 6px;
+                        ">DESCRIPTION</div>
+                        <div style="
+                            color: #475569;
+                            font-size: 13px;
+                            line-height: 1.5;
+                            font-style: italic;
+                        ">%s</div>
+                    </div>
+                </div>
+                
+                <!-- Link Button -->
+                <div style="text-align: center;">
+                    <a href="%s" target="_blank" style="
+                        display: inline-block;
+                        background: linear-gradient(135deg, #3b82f6 0%%, #1d4ed8 100%%);
+                        color: white;
+                        text-decoration: none;
+                        padding: 12px 24px;
+                        border-radius: 25px;
+                        font-weight: 600;
+                        font-size: 14px;
+                        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+                        transition: all 0.2s ease;
+                        border: none;
+                        cursor: pointer;
+                    " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(59, 130, 246, 0.6)'" 
+                       onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 12px rgba(59, 130, 246, 0.4)'">
+                        View on Kijiji →
+                    </a>
+                </div>
+            </div>
         </div>
         """
         
@@ -482,7 +642,7 @@ class KijijiScraperFinal:
             )
             
             # Create marker with popup (same as web_turtle.py)
-            iframe = folium.IFrame(html=popup_content, width=350, height=300)
+            iframe = folium.IFrame(html=popup_content, width=420, height=400)
             folium.Marker(
                 location=[listing['latitude'], listing['longitude']],
                 popup=folium.Popup(iframe),
