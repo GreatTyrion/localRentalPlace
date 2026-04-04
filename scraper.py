@@ -248,7 +248,7 @@ class KijijiScraperFinal:
         
         return all_listings
         
-    def create_google_map(self, listings, output_file="kijiji_rental_map.html"):
+    def create_google_map(self, listings, output_file="index.html"):
         """Create Google Maps with rental listings"""
         print("Creating Google Maps with rental listings...")
         
@@ -424,7 +424,7 @@ class KijijiScraperFinal:
         print(f"Google Maps saved as {output_file}")
         print("Note: You need to replace 'YOUR_API_KEY' with your actual Google Maps API key")
         
-    def create_folium_map(self, listings, output_file="kijiji_rental_map.html"):
+    def create_folium_map(self, listings, output_file="index.html"):
         """Create Folium map with rental listings (same method as web_turtle.py)"""
         logger.info("Creating Folium map with rental listings...")
         
@@ -619,7 +619,7 @@ class KijijiScraperFinal:
         print(f"Folium map saved as {output_file}")
         print("Map created using the same method as web_turtle.py")
         
-    def create_map(self, listings, map_type="folium", output_file="kijiji_rental_map.html"):
+    def create_map(self, listings, map_type="folium", output_file="index.html"):
         """Create map with specified type (folium, googlemaps, or openstreetmap)"""
         if map_type.lower() == "googlemaps":
             self.create_google_map(listings, output_file)
@@ -773,7 +773,7 @@ def main():
         print("\n✓ Scraping completed successfully!")
         print("Files created:")
         print("- kijiji_rentals.csv (listing data)")
-        print("- kijiji_rental_map.html (interactive map) OR kijiji_rental_list.html (list view)")
+        print("- index.html (interactive map) OR kijiji_rental_list.html (list view)")
         print("\nOpen the HTML file in your browser to view the results!")
     else:
         print("✗ No listings found. Check your internet connection and try again.")
