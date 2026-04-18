@@ -185,12 +185,12 @@ class KijijiScraperFinal:
         
         # Updated URLs that work
         base_urls_dict = {
-            "https://www.kijiji.ca/b-apartments-condos/st-johns": "c37l1700113",
+            "https://www.kijiji.ca/b-apartments-condos/st-johnsl1700113": "c37l1700113",
             "https://www.kijiji.ca/b-for-rent/st-johns": "c30349001l1700113"
         }
         base_urls_and_max_pages_dict = {
-            "https://www.kijiji.ca/b-apartments-condos/st-johns": 4,
-            "https://www.kijiji.ca/b-for-rent/st-johns": 7
+            "https://www.kijiji.ca/b-apartments-condos/st-johnsl1700113": 4,
+            "https://www.kijiji.ca/b-for-rent/st-johns": 7,
         }
 
         all_listings = []
