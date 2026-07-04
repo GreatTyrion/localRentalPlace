@@ -1,0 +1,60 @@
+name: Deploy to GitHub Pages
+
+# Publishes a clean, slimmed static site (just the web files) to GitHub Pages.
+# Replaces the default "deploy from a branch" Jekyll pipeline.
+#
+# One-time setup: repo Settings -> Pages -> Build and deployment ->
+#   Source = "GitHub Actions".
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "index.html"
+      - "kijiji_rental_list.html"
+      - "kijiji_rental_map.html"
+      - "kijiji_rentals.csv"
+      - ".github/workflows/deploy-pages.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one Pages deployment at a time; don't cancel an in-flight publish.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Stage site (only the web files)
+        run: |
+          mkdir -p _site
+          cp index.html _site/
+          for f in kijiji_rental_list.html kijiji_rental_map.html kijiji_rentals.csv; do
+            [ -f "$f" ] && cp "$f" _site/
+          done
+          # Skip Jekyll processing entirely -- these are plain static files.
+          touch _site/.nojekyll
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
