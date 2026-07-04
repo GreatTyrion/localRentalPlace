@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>St. John's Rentals — Rental Explorer</title>
+  <meta name="description" content="An interactive explorer for rental listings in St. John's, NL.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏠</text></svg>">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+
+  <style>
+    :root {
+      --bg: #FBFAF8;
+      --surface: #FFFFFF;
+      --surface-2: #F5F2EC;
+      --text: #1C1B1A;
+      --muted: #726E68;
+      --border: #ECE7DE;
+      --border-strong: #DED7CB;
+      --accent: #FF5A5F;
+      --accent-ink: #FFFFFF;
+      --success: #00A67E;
+      --budget: #00A67E;
+      --mid: #E8A317;
+      --premium: #FF5A5F;
+      --unknown: #9AA0A6;
+      --shadow: 0 1px 2px rgba(28,27,26,.04), 0 8px 24px rgba(28,27,26,.06);
+      --shadow-lg: 0 12px 40px rgba(28,27,26,.14);
+      --radius: 16px;
+      --radius-sm: 10px;
+      --map-filter: none;
+    }
+    [data-theme="dark"] {
+      --bg: #131217;
+      --surface: #1C1B22;
+      --surface-2: #232128;
+      --text: #F3F1EE;
+      --muted: #A29DA6;
+      --border: #2C2A33;
+      --border-strong: #3A3743;
+      --accent: #FF6B70;
+      --accent-ink: #1a1a1a;
+      --success: #2DD4A8;
+      --budget: #2DD4A8;
+      --mid: #F0B44A;
+      --premium: #FF6B70;
+      --unknown: #7C7A85;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
+      --shadow-lg: 0 16px 48px rgba(0,0,0,.5);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+    a { color: inherit; }
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 20px; border: 2px solid var(--bg); }
+
+    /* ---------- Top bar ---------- */
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      padding: 12px 22px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      z-index: 20;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .brand .logo {
+      width: 42px; height: 42px; flex: none;
+      display: grid; place-items: center;
+      font-size: 22px;
+      background: linear-gradient(135deg, var(--accent), #ff8a5f);
+      border-radius: 12px;
+      box-shadow: 0 6px 16px rgba(255,90,95,.35);
+    }
+    .brand h1 { font-size: 18px; font-weight: 800; margin: 0; letter-spacing: -.02em; white-space: nowrap; }
+    .brand .tagline { margin: 2px 0 0; font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .brand .tagline b { color: var(--text); font-weight: 700; }
+
+    .topbar-actions { display: flex; align-items: center; gap: 12px; }
+    .search {
+      display: flex; align-items: center; gap: 8px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 9px 14px;
+      width: min(340px, 42vw);
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255,90,95,.14); }
+    .search svg { flex: none; color: var(--muted); }
+    .search input { border: none; background: none; outline: none; color: var(--text); font-size: 14px; width: 100%; font-family: inherit; }
+    .icon-btn {
+      width: 42px; height: 42px; flex: none;
+      display: grid; place-items: center;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      border-radius: 12px; cursor: pointer; color: var(--text);
+      transition: transform .12s, background .15s, border-color .15s;
+    }
+    .icon-btn:hover { border-color: var(--border-strong); transform: translateY(-1px); }
+    .icon-btn:active { transform: translateY(0); }
+
+    /* ---------- Analytics strip ---------- */
+    .analytics {
+      display: flex; align-items: stretch; gap: 14px;
+      padding: 14px 22px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      overflow-x: auto;
+    }
+    .stat-cards { display: grid; grid-template-columns: repeat(4, minmax(112px, 1fr)); gap: 10px; flex: none; }
+    .stat-card {
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 10px 14px; min-width: 112px;
+    }
+    .stat-card .k { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
+    .stat-card .v { font-size: 22px; font-weight: 800; margin-top: 3px; letter-spacing: -.02em; }
+    .stat-card .v small { font-size: 12px; font-weight: 600; color: var(--muted); }
+
+    .charts { display: flex; gap: 22px; flex: 1; min-width: 420px; padding-left: 6px; }
+    .chart { flex: 1; min-width: 0; }
+    .chart-title { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 700; margin-bottom: 8px; }
+    .bars { display: flex; align-items: flex-end; gap: 5px; height: 58px; }
+    .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; }
+    .bar-wrap { width: 100%; height: 44px; display: flex; align-items: flex-end; }
+    .bar {
+      width: 100%; border-radius: 5px 5px 2px 2px;
+      background: linear-gradient(180deg, var(--accent), #ff8f74);
+      min-height: 3px; transition: filter .15s;
+      position: relative;
+    }
+    .bar.beds { background: linear-gradient(180deg, var(--success), #4fd0b0); }
+    .bar-col:hover .bar { filter: brightness(1.08); }
+    .bar-col .lbl { font-size: 9.5px; color: var(--muted); font-weight: 600; white-space: nowrap; }
+    .bar-col .cnt { font-size: 10px; font-weight: 700; color: var(--text); opacity: 0; transition: opacity .15s; }
+    .bar-col:hover .cnt { opacity: 1; }
+
+    /* ---------- Explorer split ---------- */
+    .explorer { flex: 1; display: grid; grid-template-columns: minmax(360px, 440px) 1fr; min-height: 0; }
+    .panel { min-height: 0; position: relative; }
+    .listings-panel { display: flex; flex-direction: column; border-right: 1px solid var(--border); background: var(--bg); }
+
+    /* ---------- Filters ---------- */
+    .filters { padding: 14px 18px; border-bottom: 1px solid var(--border); background: var(--surface); display: flex; flex-direction: column; gap: 12px; }
+    .filter-row { display: flex; flex-direction: column; gap: 7px; }
+    .filter-row > .flabel { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 700; display: flex; justify-content: space-between; align-items: center; }
+    .flabel .rangeval { color: var(--text); font-weight: 700; font-size: 12px; text-transform: none; letter-spacing: 0; }
+
+    .pills { display: flex; flex-wrap: wrap; gap: 6px; }
+    .pill {
+      border: 1px solid var(--border-strong); background: var(--surface);
+      color: var(--text); padding: 6px 12px; border-radius: 999px;
+      font-size: 12.5px; font-weight: 600; cursor: pointer; font-family: inherit;
+      transition: all .12s;
+    }
+    .pill:hover { border-color: var(--accent); }
+    .pill.active { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); box-shadow: 0 4px 12px rgba(255,90,95,.3); }
+
+    .filter-inline { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+    .switch { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; font-weight: 600; user-select: none; }
+    .switch input { position: absolute; opacity: 0; pointer-events: none; }
+    .switch .track { width: 38px; height: 22px; border-radius: 999px; background: var(--border-strong); position: relative; transition: background .15s; flex: none; }
+    .switch .track::after { content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform .15s; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+    .switch input:checked + .track { background: var(--success); }
+    .switch input:checked + .track::after { transform: translateX(16px); }
+
+    select.sort {
+      font-family: inherit; font-size: 13px; font-weight: 600; color: var(--text);
+      background: var(--surface); border: 1px solid var(--border-strong);
+      border-radius: 10px; padding: 7px 10px; cursor: pointer; outline: none;
+    }
+    select.sort:focus { border-color: var(--accent); }
+
+    /* dual range slider */
+    .range { position: relative; height: 26px; }
+    .range .track-bg { position: absolute; top: 11px; left: 0; right: 0; height: 4px; background: var(--border-strong); border-radius: 4px; }
+    .range .track-fill { position: absolute; top: 11px; height: 4px; background: var(--accent); border-radius: 4px; }
+    .range input[type=range] {
+      position: absolute; top: 0; left: 0; width: 100%; margin: 0;
+      -webkit-appearance: none; appearance: none; background: none; pointer-events: none; height: 26px;
+    }
+    .range input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none; pointer-events: auto; width: 18px; height: 18px; border-radius: 50%;
+      background: #fff; border: 3px solid var(--accent); box-shadow: var(--shadow); cursor: pointer; margin-top: 0;
+    }
+    .range input[type=range]::-moz-range-thumb {
+      pointer-events: auto; width: 16px; height: 16px; border-radius: 50%;
+      background: #fff; border: 3px solid var(--accent); box-shadow: var(--shadow); cursor: pointer;
+    }
+
+    /* ---------- Results / cards ---------- */
+    .results-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 18px 8px; }
+    .results-head .rc { font-size: 13.5px; font-weight: 700; }
+    .results-head .rc span { color: var(--muted); font-weight: 500; }
+    .link-btn { background: none; border: none; color: var(--accent); font-weight: 700; font-size: 13px; cursor: pointer; font-family: inherit; padding: 4px; }
+    .link-btn:hover { text-decoration: underline; }
+
+    .cards { flex: 1; overflow-y: auto; padding: 4px 18px 22px; display: flex; flex-direction: column; gap: 12px; }
+    .card {
+      flex: none;
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      overflow: hidden; cursor: pointer; box-shadow: var(--shadow);
+      transition: transform .14s, box-shadow .14s, border-color .14s;
+    }
+    .card:hover, .card.hl { transform: translateY(-2px); box-shadow: var(--shadow-lg); border-color: var(--border-strong); }
+    .card.sel { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent), var(--shadow-lg); }
+    .card-top {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 14px; color: #fff;
+      background: linear-gradient(120deg, var(--premium), #ff8a5f);
+    }
+    .card-top.budget { background: linear-gradient(120deg, var(--budget), #37c9a5); }
+    .card-top.mid { background: linear-gradient(120deg, var(--mid), #f2c14e); }
+    .card-top.premium { background: linear-gradient(120deg, var(--premium), #ff8a5f); }
+    .card-top.unknown { background: linear-gradient(120deg, #8b9096, #aeb3b8); }
+    .card-price { font-size: 20px; font-weight: 800; letter-spacing: -.02em; }
+    .card-price small { font-size: 12px; font-weight: 600; opacity: .85; }
+    .card-tier-badge { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; background: rgba(255,255,255,.22); padding: 4px 9px; border-radius: 999px; }
+    .card-body { padding: 12px 14px 14px; }
+    .card-title { margin: 0 0 6px; font-size: 15px; font-weight: 700; line-height: 1.3; letter-spacing: -.01em;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .card-addr { margin: 0 0 10px; font-size: 12.5px; color: var(--muted); display: flex; gap: 5px; align-items: flex-start; }
+    .card-addr svg { flex: none; margin-top: 1px; }
+    .card-specs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+    .spec { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; color: var(--text);
+      background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 4px 8px; }
+    .spec svg { color: var(--muted); }
+    .card-desc { margin: 0 0 12px; font-size: 12.5px; line-height: 1.5; color: var(--muted);
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .card-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .card-link {
+      text-decoration: none; font-size: 13px; font-weight: 700; color: var(--accent);
+      display: inline-flex; align-items: center; gap: 4px;
+    }
+    .card-link:hover { gap: 8px; }
+    .noloc { font-size: 11px; color: var(--muted); font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
+
+    .empty { text-align: center; padding: 60px 24px; color: var(--muted); }
+    .empty .big { font-size: 40px; margin-bottom: 10px; }
+    .empty h3 { margin: 0 0 6px; color: var(--text); font-size: 16px; }
+
+    /* ---------- Map ---------- */
+    .map-panel { background: var(--surface-2); }
+    #map { position: absolute; inset: 0; z-index: 1; }
+    .leaflet-tile-pane { filter: var(--map-filter); }
+    .legend {
+      position: absolute; bottom: 18px; right: 14px; z-index: 5;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; box-shadow: var(--shadow-lg); padding: 11px 13px;
+      font-size: 12px;
+    }
+    .legend .lt { font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 700; margin-bottom: 7px; }
+    .legend .li { display: flex; align-items: center; gap: 8px; margin: 4px 0; font-weight: 600; }
+    .legend .dot { width: 11px; height: 11px; border-radius: 50%; flex: none; }
+
+    /* map pins */
+    .pin {
+      font-weight: 800; font-size: 11.5px; color: #fff; white-space: nowrap;
+      padding: 4px 8px; border-radius: 999px; box-shadow: 0 3px 8px rgba(0,0,0,.32);
+      border: 2px solid #fff; transform: translateY(0); transition: transform .12s;
+      font-family: 'Inter', sans-serif;
+    }
+    .pin-budget { background: var(--budget); }
+    .pin-mid { background: var(--mid); }
+    .pin-premium { background: var(--premium); }
+    .pin-unknown { background: var(--unknown); }
+    .pin-active { transform: scale(1.18); box-shadow: 0 6px 16px rgba(0,0,0,.4); z-index: 1000; }
+    .leaflet-marker-icon .pin { cursor: pointer; }
+
+    .marker-cluster div { font-family: 'Inter', sans-serif; font-weight: 800; }
+    .marker-cluster-small, .marker-cluster-medium, .marker-cluster-large { background: rgba(255,90,95,.25); }
+    .marker-cluster-small div, .marker-cluster-medium div, .marker-cluster-large div { background: var(--accent); color: #fff; }
+
+    /* Leaflet popup styling */
+    .leaflet-popup-content-wrapper { border-radius: 14px; box-shadow: var(--shadow-lg); background: var(--surface); color: var(--text); padding: 0; overflow: hidden; }
+    .leaflet-popup-content { margin: 0; width: 250px !important; }
+    .leaflet-popup-tip { background: var(--surface); }
+    .leaflet-popup-close-button { color: #fff !important; top: 8px !important; right: 8px !important; }
+    .pop-top { padding: 12px 14px; color: #fff; }
+    .pop-top.budget { background: linear-gradient(120deg, var(--budget), #37c9a5); }
+    .pop-top.mid { background: linear-gradient(120deg, var(--mid), #f2c14e); }
+    .pop-top.premium { background: linear-gradient(120deg, var(--premium), #ff8a5f); }
+    .pop-top.unknown { background: linear-gradient(120deg, #8b9096, #aeb3b8); }
+    .pop-price { font-size: 19px; font-weight: 800; }
+    .pop-title { font-size: 12.5px; font-weight: 600; opacity: .95; margin-top: 2px; line-height: 1.3; }
+    .pop-body { padding: 11px 14px 13px; }
+    .pop-addr { font-size: 12px; color: var(--muted); margin-bottom: 9px; }
+    .pop-specs { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 11px; }
+    .pop-specs .spec { font-size: 11.5px; }
+    .pop-link { display: block; text-align: center; text-decoration: none; background: var(--accent); color: #fff;
+      font-weight: 700; font-size: 13px; padding: 9px; border-radius: 10px; }
+
+    /* ---------- Mobile ---------- */
+    .mobile-switch { display: none; }
+    @media (max-width: 860px) {
+      body { height: 100dvh; }
+      .analytics { display: none; }
+      .search { width: 100%; }
+      .topbar { flex-wrap: wrap; padding: 10px 14px; }
+      .topbar-actions { width: 100%; }
+      .explorer { grid-template-columns: 1fr; }
+      .map-panel { display: none; }
+      body.view-map .listings-panel { display: none; }
+      body.view-map .map-panel { display: block; }
+      .mobile-switch {
+        display: flex; position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+        z-index: 30; background: var(--surface); border: 1px solid var(--border-strong);
+        border-radius: 999px; box-shadow: var(--shadow-lg); padding: 4px; gap: 4px;
+      }
+      .mobile-switch button {
+        border: none; background: none; font-family: inherit; font-weight: 700; font-size: 13px;
+        color: var(--muted); padding: 9px 20px; border-radius: 999px; cursor: pointer;
+      }
+      .mobile-switch button.active { background: var(--accent); color: #fff; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">🏠</div>
+      <div style="min-width:0">
+        <h1>St. John's Rentals</h1>
+        <p class="tagline" id="statLine"></p>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <label class="search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg>
+        <input id="search" type="search" placeholder="Search title, address, description…" autocomplete="off">
+      </label>
+      <button class="icon-btn" id="themeToggle" title="Toggle light / dark" aria-label="Toggle theme">
+        <svg id="themeIcon" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="5"></circle><path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"></path></svg>
+      </button>
+    </div>
+  </header>
+
+  <section class="analytics" id="analytics">
+    <div class="stat-cards">
+      <div class="stat-card"><div class="k">Total homes</div><div class="v" id="sCount">—</div></div>
+      <div class="stat-card"><div class="k">Median rent</div><div class="v" id="sMedian">—</div></div>
+      <div class="stat-card"><div class="k">Most affordable</div><div class="v" id="sMin">—</div></div>
+      <div class="stat-card"><div class="k">Priciest</div><div class="v" id="sMax">—</div></div>
+    </div>
+    <div class="charts">
+      <div class="chart">
+        <div class="chart-title">Price distribution</div>
+        <div class="bars" id="priceBars"></div>
+      </div>
+      <div class="chart">
+        <div class="chart-title">Bedrooms</div>
+        <div class="bars" id="bedsBars"></div>
+      </div>
+    </div>
+  </section>
+
+  <main class="explorer">
+    <aside class="panel listings-panel">
+      <div class="filters">
+        <div class="filter-row">
+          <div class="flabel">Price range <span class="rangeval" id="priceRangeVal"></span></div>
+          <div class="range" id="priceRange">
+            <div class="track-bg"></div>
+            <div class="track-fill" id="trackFill"></div>
+            <input type="range" id="priceMin" min="0" max="100" value="0">
+            <input type="range" id="priceMax" min="0" max="100" value="100">
+          </div>
+        </div>
+        <div class="filter-row">
+          <div class="flabel">Bedrooms</div>
+          <div class="pills" id="bedPills">
+            <button class="pill active" data-beds="any">Any</button>
+            <button class="pill" data-beds="0">Studio</button>
+            <button class="pill" data-beds="1">1</button>
+            <button class="pill" data-beds="2">2</button>
+            <button class="pill" data-beds="3">3</button>
+            <button class="pill" data-beds="4">4+</button>
+          </div>
+        </div>
+        <div class="filter-inline">
+          <div class="filter-row" style="gap:7px">
+            <div class="flabel">Bathrooms</div>
+            <div class="pills" id="bathPills">
+              <button class="pill active" data-baths="any">Any</button>
+              <button class="pill" data-baths="1">1+</button>
+              <button class="pill" data-baths="2">2+</button>
+              <button class="pill" data-baths="3">3+</button>
+            </div>
+          </div>
+        </div>
+        <div class="filter-inline">
+          <label class="switch">
+            <input type="checkbox" id="petsOnly">
+            <span class="track"></span>
+            <span>Pets allowed</span>
+          </label>
+          <label class="switch" style="margin-left:auto; gap:8px;">
+            <span style="color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.05em; font-weight:700;">Sort</span>
+            <select class="sort" id="sortSel">
+              <option value="recommended">Recommended</option>
+              <option value="price-asc">Price: low → high</option>
+              <option value="price-desc">Price: high → low</option>
+              <option value="beds-desc">Most bedrooms</option>
+              <option value="beds-asc">Fewest bedrooms</option>
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <div class="results-head">
+        <div class="rc"><span id="resultCount"></span></div>
+        <button class="link-btn" id="resetBtn">Reset filters</button>
+      </div>
+      <div class="cards" id="cards"></div>
+      <div class="empty" id="empty" hidden>
+        <div class="big">🔍</div>
+        <h3>No listings match</h3>
+        <p>Try widening your price range or clearing a filter.</p>
+      </div>
+    </aside>
+
+    <section class="panel map-panel">
+      <div id="map"></div>
+      <div class="legend">
+        <div class="lt">Monthly rent</div>
+        <div class="li"><span class="dot" style="background:var(--budget)"></span>Under $1,200</div>
+        <div class="li"><span class="dot" style="background:var(--mid)"></span>$1,200 – $2,000</div>
+        <div class="li"><span class="dot" style="background:var(--premium)"></span>Over $2,000</div>
+        <div class="li"><span class="dot" style="background:var(--unknown)"></span>Price on request</div>
+      </div>
+    </section>
+  </main>
+
+  <div class="mobile-switch">
+    <button data-view="list" class="active">🏘️ List</button>
+    <button data-view="map">🗺️ Map</button>
+  </div>
+
+  <script>
+    const LISTINGS = {{ listings_json }};
+    const STATS = {{ stats_json }};
+  </script>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+  <script>
+  (function () {
+    'use strict';
+
+    // ---------- helpers ----------
+    const $ = (s, r) => (r || document).querySelector(s);
+    const money = n => n == null ? '—' : '$' + n.toLocaleString('en-US');
+    const esc = s => String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    const tierLabel = { budget: 'Budget', mid: 'Mid-range', premium: 'Premium', unknown: 'On request' };
+
+    const SVG = {
+      pin: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 21s7-5.5 7-11a7 7 0 1 0-14 0c0 5.5 7 11 7 11z"></path><circle cx="12" cy="10" r="2.4"></circle></svg>',
+      bed: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 17V7a1 1 0 0 1 1-1h13a3 3 0 0 1 3 3v2"></path><path d="M2 13h20v4"></path><path d="M2 17v2M22 17v2"></path></svg>',
+      bath: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12V6a2 2 0 0 1 2-2 2 2 0 0 1 2 2"></path><path d="M2 12h20v2a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5z"></path><path d="M6 19l-1 2M18 19l1 2"></path></svg>',
+      ruler: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="8" rx="1"></rect><path d="M7 8v3M11 8v4M15 8v3M19 8v4"></path></svg>',
+      paw: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="6" cy="10" r="2"></circle><circle cx="18" cy="10" r="2"></circle><circle cx="9.5" cy="6.5" r="2"></circle><circle cx="14.5" cy="6.5" r="2"></circle><path d="M12 12c-2.6 0-5 2.2-5 4.5C7 18.4 8.5 19 12 19s5-.6 5-2.5C17 14.2 14.6 12 12 12z"></path></svg>'
+    };
+
+    // ---------- theme ----------
+    const root = document.documentElement;
+    function setTheme(t) {
+      root.setAttribute('data-theme', t);
+      root.style.setProperty('--map-filter', t === 'dark'
+        ? 'brightness(.86) invert(1) hue-rotate(180deg) saturate(.7)'
+        : 'none');
+      try { localStorage.setItem('rentals-theme', t); } catch (e) {}
+      if (window._map) { setTimeout(() => window._map.invalidateSize(), 60); }
+    }
+    (function initTheme() {
+      let t = null;
+      try { t = localStorage.getItem('rentals-theme'); } catch (e) {}
+      if (!t) t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      setTheme(t);
+    })();
+    $('#themeToggle').addEventListener('click', () =>
+      setTheme(root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'));
+
+    // ---------- header + analytics ----------
+    $('#statLine').innerHTML = '<b>' + STATS.count + '</b> homes · median <b>' +
+      money(STATS.median) + '</b> · ' + money(STATS.min) + '–' + money(STATS.max) +
+      ' · updated ' + STATS.updated;
+    $('#sCount').textContent = STATS.count;
+    $('#sMedian').innerHTML = money(STATS.median) + '<small>/mo</small>';
+    $('#sMin').innerHTML = money(STATS.min) + '<small>/mo</small>';
+    $('#sMax').innerHTML = money(STATS.max) + '<small>/mo</small>';
+
+    function renderBars(container, data, cls) {
+      const max = Math.max(1, ...data.map(d => d.count));
+      container.innerHTML = data.map(d => {
+        const h = Math.round((d.count / max) * 100);
+        return '<div class="bar-col" title="' + esc(d.label) + ': ' + d.count + '">' +
+          '<span class="cnt">' + d.count + '</span>' +
+          '<div class="bar-wrap"><div class="bar ' + cls + '" style="height:' + h + '%"></div></div>' +
+          '<span class="lbl">' + esc(d.label) + '</span></div>';
+      }).join('');
+    }
+    renderBars($('#priceBars'), STATS.histogram, '');
+    const bedsOrder = ['Studio', '1', '2', '3', '4+', 'N/A'];
+    const bedsData = bedsOrder.filter(k => STATS.bedsDist[k])
+      .map(k => ({ label: k, count: STATS.bedsDist[k] }));
+    renderBars($('#bedsBars'), bedsData, 'beds');
+
+    // ---------- price slider setup ----------
+    const priced = LISTINGS.map(l => l.price).filter(p => p != null).sort((a, b) => a - b);
+    const P_MIN = 0;
+    // cap slider near the 95th percentile so outliers don't ruin the scale
+    const p95 = priced.length ? priced[Math.floor(priced.length * 0.95)] : 5000;
+    const P_MAX = Math.max(1000, Math.ceil(p95 / 250) * 250);
+    const STEP = 50;
+    const minEl = $('#priceMin'), maxEl = $('#priceMax'), fill = $('#trackFill');
+    [minEl, maxEl].forEach(el => { el.min = P_MIN; el.max = P_MAX; el.step = STEP; });
+    minEl.value = P_MIN; maxEl.value = P_MAX;
+
+    function priceBounds() {
+      let lo = +minEl.value, hi = +maxEl.value;
+      if (lo > hi) { const t = lo; lo = hi; hi = t; }
+      return { lo, hi, uncappedHi: hi >= P_MAX };
+    }
+    function paintSlider() {
+      const { lo, hi } = priceBounds();
+      const l = ((lo - P_MIN) / (P_MAX - P_MIN)) * 100;
+      const r = ((hi - P_MIN) / (P_MAX - P_MIN)) * 100;
+      fill.style.left = l + '%';
+      fill.style.width = (r - l) + '%';
+      const hiTxt = hi >= P_MAX ? money(P_MAX) + '+' : money(hi);
+      $('#priceRangeVal').textContent = money(lo) + ' – ' + hiTxt;
+    }
+
+    // ---------- filter state ----------
+    const state = { q: '', beds: 'any', baths: 'any', pets: false, sort: 'recommended' };
+
+    function matches(l) {
+      if (state.q) {
+        const hay = (l.title + ' ' + l.address + ' ' + l.description).toLowerCase();
+        if (!hay.includes(state.q)) return false;
+      }
+      const { lo, hi, uncappedHi } = priceBounds();
+      if (l.price != null) {
+        if (l.price < lo) return false;
+        if (!uncappedHi && l.price > hi) return false;
+      }
+      if (state.beds !== 'any') {
+        const want = +state.beds;
+        if (l.beds == null) return false;
+        if (want === 4 ? l.beds < 4 : Math.round(l.beds) !== want) return false;
+      }
+      if (state.baths !== 'any') {
+        if (l.baths == null || l.baths < +state.baths) return false;
+      }
+      if (state.pets && l.pets !== true) return false;
+      return true;
+    }
+
+    function sortList(arr) {
+      const s = state.sort;
+      if (s === 'recommended') return arr;
+      const nn = (v, big) => v == null ? (big ? -Infinity : Infinity) : v;
+      const c = {
+        'price-asc': (a, b) => nn(a.price, false) - nn(b.price, false),
+        'price-desc': (a, b) => nn(b.price, true) - nn(a.price, true),
+        'beds-desc': (a, b) => nn(b.beds, true) - nn(a.beds, true),
+        'beds-asc': (a, b) => nn(a.beds, false) - nn(b.beds, false)
+      }[s];
+      return arr.slice().sort(c);
+    }
+
+    // ---------- card rendering ----------
+    function specHTML(l) {
+      const items = [];
+      items.push('<span class="spec">' + SVG.bed + (l.beds == null ? '—' : (l.beds === 0 ? 'Studio' : l.beds)) + (l.beds > 0 || l.beds == null ? ' bd' : '') + '</span>');
+      items.push('<span class="spec">' + SVG.bath + (l.baths == null ? '—' : l.baths) + ' ba</span>');
+      if (l.size) items.push('<span class="spec">' + SVG.ruler + l.size.toLocaleString() + ' ft²</span>');
+      if (l.pets === true) items.push('<span class="spec">' + SVG.paw + 'Pets ok</span>');
+      return items.join('');
+    }
+
+    function cardHTML(l) {
+      const loc = (l.lat != null && l.lng != null)
+        ? '<a class="card-link" href="' + esc(l.url) + '" target="_blank" rel="noopener">View on Kijiji →</a>'
+        : '<span class="noloc">📍 Approx. location</span><a class="card-link" href="' + esc(l.url) + '" target="_blank" rel="noopener">View →</a>';
+      const priceMain = l.price != null ? money(l.price) + '<small> /mo</small>' : 'On request';
+      return '<article class="card" data-id="' + l.id + '" tabindex="0">' +
+        '<div class="card-top ' + l.tier + '"><span class="card-price">' + priceMain + '</span>' +
+        '<span class="card-tier-badge">' + tierLabel[l.tier] + '</span></div>' +
+        '<div class="card-body">' +
+        '<h3 class="card-title">' + esc(l.title) + '</h3>' +
+        '<p class="card-addr">' + SVG.pin + '<span>' + esc(l.address || 'Address not provided') + '</span></p>' +
+        '<div class="card-specs">' + specHTML(l) + '</div>' +
+        (l.description ? '<p class="card-desc">' + esc(l.description) + '</p>' : '') +
+        '<div class="card-foot">' + loc + '</div>' +
+        '</div></article>';
+    }
+
+    // ---------- map ----------
+    const map = L.map('map', { zoomControl: true, scrollWheelZoom: true })
+      .setView([47.5669, -52.7067], 12);
+    window._map = map;
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; OpenStreetMap &copy; CARTO', subdomains: 'abcd', maxZoom: 20
+    }).addTo(map);
+    const cluster = L.markerClusterGroup({ maxClusterRadius: 46, showCoverageOnHover: false });
+    map.addLayer(cluster);
+
+    const markers = {};
+    function makeIcon(l, active) {
+      return L.divIcon({
+        className: '',
+        html: '<div class="pin pin-' + l.tier + (active ? ' pin-active' : '') + '">' + esc(l.pinLabel) + '</div>',
+        iconSize: [46, 24], iconAnchor: [23, 24], popupAnchor: [0, -22]
+      });
+    }
+    function popupHTML(l) {
+      return '<div class="pop-top ' + l.tier + '"><div class="pop-price">' + (l.price != null ? money(l.price) + ' /mo' : 'Price on request') + '</div>' +
+        '<div class="pop-title">' + esc(l.title) + '</div></div>' +
+        '<div class="pop-body"><div class="pop-addr">' + esc(l.address || 'Address not provided') + '</div>' +
+        '<div class="pop-specs">' + specHTML(l) + '</div>' +
+        '<a class="pop-link" href="' + esc(l.url) + '" target="_blank" rel="noopener">View on Kijiji →</a></div>';
+    }
+
+    // ---------- render pipeline ----------
+    let current = [];
+    let selectedId = null;
+
+    function render() {
+      const filtered = LISTINGS.filter(matches);
+      current = sortList(filtered);
+
+      // cards
+      const cardsEl = $('#cards'), emptyEl = $('#empty');
+      cardsEl.innerHTML = current.map(cardHTML).join('');
+      emptyEl.hidden = current.length !== 0;
+      $('#resultCount').innerHTML = '<b>' + current.length + '</b> <span>of ' + LISTINGS.length + ' homes</span>';
+
+      // map markers
+      cluster.clearLayers();
+      for (const k in markers) delete markers[k];
+      const withCoords = current.filter(l => l.lat != null && l.lng != null);
+      withCoords.forEach(l => {
+        const m = L.marker([l.lat, l.lng], { icon: makeIcon(l, false) });
+        m.bindPopup(popupHTML(l), { closeButton: true, autoPanPadding: [40, 40] });
+        m.on('click', () => selectCard(l.id, false));
+        m.listingId = l.id;
+        markers[l.id] = m;
+        cluster.addLayer(m);
+      });
+      if (selectedId != null && !markers[selectedId]) selectedId = null;
+    }
+
+    // ---------- interactions ----------
+    function highlight(id, on) {
+      const card = $('.card[data-id="' + id + '"]');
+      if (card) card.classList.toggle('hl', on);
+      const m = markers[id];
+      if (m) m.setIcon(makeIcon(LISTINGS[id], on || id === selectedId));
+    }
+    function selectCard(id, scroll) {
+      if (selectedId != null) {
+        const prev = $('.card[data-id="' + selectedId + '"]');
+        if (prev) prev.classList.remove('sel');
+        if (markers[selectedId]) markers[selectedId].setIcon(makeIcon(LISTINGS[selectedId], false));
+      }
+      selectedId = id;
+      const l = LISTINGS[id];
+      const card = $('.card[data-id="' + id + '"]');
+      if (card) {
+        card.classList.add('sel');
+        if (scroll) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      const m = markers[id];
+      if (m) {
+        m.setIcon(makeIcon(l, true));
+        if (l.lat != null) {
+          map.setView([l.lat, l.lng], Math.max(map.getZoom(), 15), { animate: true });
+          cluster.zoomToShowLayer(m, () => m.openPopup());
+        }
+      }
+    }
+
+    const cardsEl = $('#cards');
+    cardsEl.addEventListener('mouseover', e => { const c = e.target.closest('.card'); if (c) highlight(+c.dataset.id, true); });
+    cardsEl.addEventListener('mouseout', e => { const c = e.target.closest('.card'); if (c) highlight(+c.dataset.id, false); });
+    cardsEl.addEventListener('click', e => {
+      if (e.target.closest('.card-link')) return; // let links work
+      const c = e.target.closest('.card'); if (!c) return;
+      const id = +c.dataset.id;
+      selectCard(id, false);
+      if (window.matchMedia('(max-width: 860px)').matches) setView('map');
+    });
+    cardsEl.addEventListener('keydown', e => {
+      if (e.key !== 'Enter') return;
+      const c = e.target.closest('.card'); if (c) selectCard(+c.dataset.id, false);
+    });
+
+    // ---------- filter wiring ----------
+    let searchTimer;
+    $('#search').addEventListener('input', e => {
+      clearTimeout(searchTimer);
+      const v = e.target.value.trim().toLowerCase();
+      searchTimer = setTimeout(() => { state.q = v; render(); }, 160);
+    });
+    function pillGroup(sel, key) {
+      $(sel).addEventListener('click', e => {
+        const b = e.target.closest('.pill'); if (!b) return;
+        $(sel).querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+        b.classList.add('active');
+        state[key] = b.dataset[key];
+        render();
+      });
+    }
+    pillGroup('#bedPills', 'beds');
+    pillGroup('#bathPills', 'baths');
+    $('#petsOnly').addEventListener('change', e => { state.pets = e.target.checked; render(); });
+    $('#sortSel').addEventListener('change', e => { state.sort = e.target.value; render(); });
+
+    function onSlide(e) {
+      // keep the two thumbs from crossing
+      if (+minEl.value > +maxEl.value) {
+        if (e.target === minEl) minEl.value = maxEl.value;
+        else maxEl.value = minEl.value;
+      }
+      paintSlider();
+      clearTimeout(searchTimer);
+      render();
+    }
+    minEl.addEventListener('input', onSlide);
+    maxEl.addEventListener('input', onSlide);
+
+    $('#resetBtn').addEventListener('click', () => {
+      state.q = ''; state.beds = 'any'; state.baths = 'any'; state.pets = false; state.sort = 'recommended';
+      $('#search').value = '';
+      minEl.value = P_MIN; maxEl.value = P_MAX;
+      $('#petsOnly').checked = false;
+      $('#sortSel').value = 'recommended';
+      document.querySelectorAll('#bedPills .pill, #bathPills .pill').forEach(p =>
+        p.classList.toggle('active', p.dataset.beds === 'any' || p.dataset.baths === 'any'));
+      paintSlider();
+      render();
+    });
+
+    // ---------- mobile view switch ----------
+    function setView(v) {
+      document.body.classList.toggle('view-map', v === 'map');
+      document.querySelectorAll('.mobile-switch button').forEach(b =>
+        b.classList.toggle('active', b.dataset.view === v));
+      if (v === 'map') setTimeout(() => map.invalidateSize(), 60);
+    }
+    document.querySelectorAll('.mobile-switch button').forEach(b =>
+      b.addEventListener('click', () => setView(b.dataset.view)));
+
+    // ---------- go ----------
+    paintSlider();
+    render();
+  })();
+  </script>
+</body>
+</html>

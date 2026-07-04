@@ -8,6 +8,8 @@ Works without geocoding to avoid SSL issues
 import requests
 from bs4 import BeautifulSoup
 import json
+import os
+import statistics
 import time
 import random
 from datetime import datetime
@@ -17,6 +19,7 @@ from geopy.geocoders import Nominatim
 from geopy.geocoders import ArcGIS
 import folium
 from folium.plugins import MarkerCluster
+from jinja2 import Environment, FileSystemLoader
 from loguru import logger
 
 class KijijiScraperFinal:
@@ -619,14 +622,237 @@ class KijijiScraperFinal:
         print(f"Folium map saved as {output_file}")
         print("Map created using the same method as web_turtle.py")
         
-    def create_map(self, listings, map_type="folium", output_file="index.html"):
-        """Create map with specified type (folium, googlemaps, or openstreetmap)"""
+    # ------------------------------------------------------------------
+    # Rental Explorer dashboard (modern self-contained single-page app)
+    # ------------------------------------------------------------------
+
+    # Price tier boundaries tuned to the St. John's market (median ~ $2k)
+    TIER_MID = 1200
+    TIER_PREMIUM = 2000
+
+    @staticmethod
+    def _clean_text(text):
+        """Normalise scraped text: strip HTML entities and pandas NaN."""
+        if text is None or (isinstance(text, float) and text != text):
+            return ""
+        text = str(text)
+        replacements = {
+            "&apos;": "'", "&#39;": "'", "&rsquo;": "'", "&quot;": '"',
+            "&amp;": "&", "&lt;": "<", "&gt;": ">", "&nbsp;": " ",
+        }
+        for entity, char in replacements.items():
+            text = text.replace(entity, char)
+        return " ".join(text.split()).strip()
+
+    @staticmethod
+    def _to_number(value):
+        """Extract a numeric value (int when whole) from a messy string."""
+        try:
+            cleaned = re.sub(r"[^\d.]", "", str(value))
+            if cleaned in ("", "."):
+                return None
+            num = float(cleaned)
+            return int(num) if num.is_integer() else round(num, 1)
+        except (ValueError, TypeError):
+            return None
+
+    @staticmethod
+    def parse_info(info):
+        """Split the ' *** ' delimited info string into structured fields."""
+        fields = {"beds": None, "baths": None, "size": None, "pets": None, "lease": None}
+        if not info or not isinstance(info, str):
+            return fields
+        for part in info.split(" *** "):
+            if ": " not in part:
+                continue
+            key, _, value = part.partition(": ")
+            key, value = key.strip().lower(), value.strip()
+            if key == "bedrooms":
+                fields["beds"] = KijijiScraperFinal._to_number(value)
+            elif key == "bathrooms":
+                fields["baths"] = KijijiScraperFinal._to_number(value)
+            elif key.startswith("size"):
+                size = KijijiScraperFinal._to_number(value)
+                fields["size"] = int(size) if size else None
+            elif key == "pets allowed":
+                fields["pets"] = value.lower() in ("yes", "true", "1")
+            elif key == "lease length":
+                fields["lease"] = value or None
+        return fields
+
+    @staticmethod
+    def _parse_price(price):
+        """Parse a price string like '$1,600' into an int, or None."""
+        try:
+            cleaned = re.sub(r"[^\d.]", "", str(price))
+            if cleaned in ("", "."):
+                return None
+            return int(round(float(cleaned)))
+        except (ValueError, TypeError):
+            return None
+
+    @classmethod
+    def _price_tier(cls, price):
+        if price is None:
+            return "unknown"
+        if price < cls.TIER_MID:
+            return "budget"
+        if price < cls.TIER_PREMIUM:
+            return "mid"
+        return "premium"
+
+    @staticmethod
+    def _pin_label(price):
+        """Compact price label shown directly on a map pin (e.g. '$1.6k')."""
+        if price is None:
+            return "—"
+        if price >= 1000:
+            label = f"${price / 1000:.1f}k"
+            return label.replace(".0k", "k")
+        return f"${price}"
+
+    @staticmethod
+    def _beds_key(beds):
+        if beds is None:
+            return "N/A"
+        if beds == 0:
+            return "Studio"
+        return "4+" if beds >= 4 else str(int(beds))
+
+    @staticmethod
+    def _fmt_k(value):
+        if value == 0:
+            return "$0"
+        if value % 1000 == 0:
+            return f"${value // 1000}k"
+        return f"${value / 1000:.1f}k"
+
+    @classmethod
+    def _price_histogram(cls, prices, step=500, cap=4000):
+        """Bucket prices into $500 bands with a single overflow band."""
+        if not prices:
+            return []
+        buckets = {}
+        for price in prices:
+            if price >= cap:
+                key, label = cap, f"{cls._fmt_k(cap)}+"
+            else:
+                key = (price // step) * step
+                label = cls._fmt_k(key)
+            buckets.setdefault(key, {"label": label, "count": 0})
+            buckets[key]["count"] += 1
+        return [buckets[key] for key in sorted(buckets)]
+
+    def _compute_stats(self, records):
+        prices = sorted(r["price"] for r in records if r["price"] is not None)
+        tiers = {"budget": 0, "mid": 0, "premium": 0, "unknown": 0}
+        beds_dist = {}
+        for record in records:
+            tiers[record["tier"]] += 1
+            key = self._beds_key(record["beds"])
+            beds_dist[key] = beds_dist.get(key, 0) + 1
+        return {
+            "count": len(records),
+            "withCoords": sum(1 for r in records if r["lat"] is not None and r["lng"] is not None),
+            "withPrice": len(prices),
+            "min": prices[0] if prices else None,
+            "max": prices[-1] if prices else None,
+            "avg": int(round(statistics.mean(prices))) if prices else None,
+            "median": int(round(statistics.median(prices))) if prices else None,
+            "tiers": tiers,
+            "bedsDist": beds_dist,
+            "histogram": self._price_histogram(prices),
+            "updated": datetime.now().strftime("%b %d, %Y"),
+        }
+
+    def build_dashboard_data(self, listings):
+        """Turn raw listing dicts into clean records + summary stats."""
+        seen, records = set(), []
+        for listing in listings:
+            url = self._clean_text(listing.get("url", ""))
+            if url and url in seen:
+                continue
+            seen.add(url)
+
+            lat = self._to_coord(listing.get("latitude"))
+            lng = self._to_coord(listing.get("longitude"))
+            info = self.parse_info(listing.get("info", ""))
+            price = self._parse_price(listing.get("price", ""))
+
+            records.append({
+                "id": len(records),
+                "title": self._clean_text(listing.get("title", "")) or "Untitled listing",
+                "url": url,
+                "address": self._clean_text(listing.get("address", "")),
+                "lat": lat,
+                "lng": lng,
+                "price": price,
+                "priceLabel": f"${price:,}" if price is not None else "Price on request",
+                "pinLabel": self._pin_label(price),
+                "tier": self._price_tier(price),
+                "beds": info["beds"],
+                "baths": info["baths"],
+                "size": info["size"],
+                "pets": info["pets"],
+                "lease": info["lease"],
+                "description": self._clean_text(listing.get("description", "")),
+            })
+        return records, self._compute_stats(records)
+
+    @staticmethod
+    def _to_coord(value):
+        try:
+            if value is None or value == "":
+                return None
+            coord = float(value)
+            return None if coord != coord else round(coord, 6)  # drop NaN
+        except (ValueError, TypeError):
+            return None
+
+    def create_dashboard(self, listings, output_file="index.html"):
+        """Render the self-contained Rental Explorer app to a single HTML file."""
+        logger.info("Building Rental Explorer dashboard...")
+        records, stats = self.build_dashboard_data(listings)
+
+        def safe_json(obj):
+            # Guard against a listing string accidentally closing the <script> tag
+            return json.dumps(obj, ensure_ascii=False).replace("</", "<\\/")
+
+        template_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates")
+        env = Environment(loader=FileSystemLoader(template_dir), autoescape=False)
+        template = env.get_template("dashboard.html.j2")
+        html = template.render(
+            listings_json=safe_json(records),
+            stats_json=safe_json(stats),
+            generated=stats["updated"],
+        )
+
+        with open(output_file, "w", encoding="utf-8") as file:
+            file.write(html)
+        logger.success(
+            f"Dashboard saved as {output_file} "
+            f"({stats['count']} listings, {stats['withCoords']} mapped)"
+        )
+        return output_file
+
+    def build_dashboard_from_csv(self, csv_file="kijiji_rentals.csv", output_file="index.html"):
+        """Regenerate the dashboard from an existing CSV (no scraping)."""
+        logger.info(f"Loading listings from {csv_file}...")
+        df = pd.read_csv(csv_file).drop_duplicates(subset=["url"])
+        listings = df.to_dict(orient="records")
+        logger.info(f"Loaded {len(listings)} listings")
+        return self.create_dashboard(listings, output_file)
+
+    def create_map(self, listings, map_type="dashboard", output_file="index.html"):
+        """Create output view: dashboard (default), folium, googlemaps, or openstreetmap."""
         if map_type.lower() == "googlemaps":
             self.create_google_map(listings, output_file)
         elif map_type.lower() == "openstreetmap":
             self.create_openstreetmap(listings, output_file)
-        else:
+        elif map_type.lower() == "folium":
             self.create_folium_map(listings, output_file)
+        else:
+            self.create_dashboard(listings, output_file)
         
     def create_list_view(self, listings):
         """Create a simple HTML list view when no coordinates are available"""
@@ -767,8 +993,8 @@ def main():
         # Save to CSV
         scraper.save_to_csv(listings)
         
-        # Create map using Folium (same method as web_turtle.py)
-        scraper.create_map(listings, map_type="folium")
+        # Create the Rental Explorer dashboard (default output)
+        scraper.create_map(listings)
         
         print("\n✓ Scraping completed successfully!")
         print("Files created:")
