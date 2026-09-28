@@ -192,8 +192,8 @@ class KijijiScraperFinal:
             "https://www.kijiji.ca/b-for-rent/st-johnsl1700113": "c30349001l1700113"
         }
         base_urls_and_max_pages_dict = {
-            "https://www.kijiji.ca/b-apartments-condos/st-johnsl1700113": 3,
-            "https://www.kijiji.ca/b-for-rent/st-johnsl1700113": 6,
+            "https://www.kijiji.ca/b-apartments-condos/st-johnsl1700113": 4,
+            "https://www.kijiji.ca/b-for-rent/st-johnsl1700113": 7,
         }
 
         all_listings = []
