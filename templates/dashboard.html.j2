@@ -623,8 +623,9 @@
     const map = L.map('map', { zoomControl: true, scrollWheelZoom: true })
       .setView([47.5669, -52.7067], 12);
     window._map = map;
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; OpenStreetMap &copy; CARTO', subdomains: 'abcd', maxZoom: 20
+    // CARTO and OSM tiles reject keyless / referrer-less requests from file:// pages.
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+      attribution: 'Tiles &copy; Esri &mdash; Esri, HERE, Garmin, &copy; OpenStreetMap contributors', maxZoom: 19
     }).addTo(map);
     const cluster = L.markerClusterGroup({ maxClusterRadius: 46, showCoverageOnHover: false });
     map.addLayer(cluster);
